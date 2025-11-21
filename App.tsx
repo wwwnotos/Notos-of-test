@@ -4,7 +4,7 @@ import { Screen, Note, User, NoteType, FontStyle, NoteColor, Comment } from './t
 import type { Notification } from './types';
 import { TRANSLATIONS, DEFAULT_TRENDING_TAGS, COUNTRY_CODES, getRelativeTime } from './constants';
 import { suggestTags, analyzeMood } from './services/geminiService';
-import { db } from './services/db';
+import { realDb as db } from './services/database';
 
 import Layout from './components/Layout';
 import NoteCard from './components/NoteCard';
@@ -12,6 +12,7 @@ import AudioPlayer from './components/AudioPlayer';
 import CommentsModal from './components/CommentsModal';
 import EditProfileModal from './components/EditProfileModal';
 import TutorialOverlay from './components/TutorialOverlay';
+import AuthScreen from './components/AuthScreen';
 import { 
   ArrowRight, Mic, X, Sparkles, 
   LogOut, Search, User as UserIcon, 
@@ -238,200 +239,6 @@ const SplashScreen = ({ onFinish }: { onFinish: () => void }) => {
   );
 };
 
-// --- Auth Screen ---
-const AuthScreen = ({ onLogin, t }: { onLogin: (identifier: string, username: string) => void, t: any }) => {
-  const [step, setStep] = useState<1 | 2 | 3 | 4>(1); 
-  const [countryCode, setCountryCode] = useState(COUNTRY_CODES[0].code);
-  const [phoneNumber, setPhoneNumber] = useState('');
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState(''); // State for password tracking
-  const [isLoading, setIsLoading] = useState(false);
-  const [isCountryOpen, setIsCountryOpen] = useState(false);
-
-  const nextStep = () => {
-    if (isLoading) return;
-    setIsLoading(true);
-    setTimeout(() => {
-      setIsLoading(false);
-      setStep(prev => (prev + 1) as any);
-    }, 500);
-  };
-
-  const handleFinalLogin = () => {
-    setIsLoading(true);
-    setTimeout(() => {
-      onLogin(`${countryCode}${phoneNumber}`, username);
-    }, 1000);
-  };
-
-  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-      const raw = e.target.value.replace(/\D/g, '');
-      setPhoneNumber(raw);
-  };
-
-  const formatPhoneNumber = (val: string) => {
-      if (!val) return '';
-      if (val.length < 4) return val;
-      if (val.length < 7) return `${val.slice(0,3)} ${val.slice(3)}`;
-      return `${val.slice(0,3)} ${val.slice(3,6)} ${val.slice(6,10)}`;
-  };
-
-  // Calculate Password Strength
-  const getPasswordStrength = (pass: string) => {
-    if (!pass) return 0;
-    let score = 0;
-    if (pass.length >= 6) score += 1;
-    if (pass.length >= 10) score += 1;
-    if (/[0-9]/.test(pass)) score += 1;
-    if (/[^A-Za-z0-9]/.test(pass)) score += 1;
-    return score; // 0 to 4
-  };
-
-  const strengthScore = getPasswordStrength(password);
-
-  return (
-    <div className="h-screen w-full bg-white dark:bg-black px-8 flex flex-col transition-colors duration-500 pt-32 relative"> 
-      <div className="absolute top-10 left-8">
-          <div className="w-10 h-10 bg-black dark:bg-white rounded-full flex items-center justify-center">
-              <span className="text-white dark:text-black font-serif font-bold italic">N</span>
-          </div>
-      </div>
-      
-      <div className="mb-12 animate-fade-in">
-        <h2 className="text-4xl font-bold mb-3 dark:text-white tracking-tight">{t.welcome}</h2>
-        <div className="h-1 w-12 bg-brand-accent rounded-full mb-4"></div>
-        <p className="text-gray-400 dark:text-gray-500 text-base font-medium leading-relaxed">
-          {step === 1 && t.enterPhone}
-          {step === 2 && "Create a secure password."}
-          {step === 3 && "Choose a unique username that defines you."}
-          {step === 4 && `${t.enterCode} ${countryCode} ${formatPhoneNumber(phoneNumber)}`}
-        </p>
-      </div>
-
-      <div className="flex-1 flex flex-col justify-start">
-        {step === 1 && (
-          <div className="animate-slide-up w-full">
-             <div className="relative z-20">
-                <div className="flex items-center border-b-2 border-gray-100 dark:border-zinc-800 focus-within:border-black dark:focus-within:border-white transition-colors py-2">
-                    <button 
-                        onClick={() => setIsCountryOpen(!isCountryOpen)}
-                        className="flex items-center gap-2 mr-4 py-2"
-                    >
-                        <span className="text-2xl">{COUNTRY_CODES.find(c => c.code === countryCode)?.flag}</span>
-                        <ChevronDown size={16} className={`text-gray-400 transition-transform ${isCountryOpen ? 'rotate-180' : ''}`} /> 
-                    </button>
-                    <div className="h-6 w-px bg-gray-200 dark:bg-zinc-800 mr-4"></div>
-                    <span className="text-xl font-medium text-gray-400 mr-2">{countryCode}</span>
-                    <input 
-                        type="tel" 
-                        value={formatPhoneNumber(phoneNumber)} 
-                        onChange={handlePhoneChange} 
-                        placeholder={t.phonePlaceholder}
-                        className="flex-1 bg-transparent outline-none text-2xl font-medium dark:text-white placeholder-gray-300 tracking-wider"
-                        autoFocus
-                    />
-                </div>
-
-                {isCountryOpen && (
-                    <div className="absolute top-full left-0 mt-2 w-64 max-h-60 overflow-y-auto bg-white dark:bg-zinc-900 shadow-xl rounded-2xl border border-gray-100 dark:border-zinc-800 animate-fade-in no-scrollbar">
-                        {COUNTRY_CODES.map((c) => (
-                            <button
-                                key={c.code}
-                                onClick={() => { setCountryCode(c.code); setIsCountryOpen(false); }}
-                                className="w-full flex items-center gap-4 px-5 py-3 hover:bg-gray-50 dark:hover:bg-zinc-800 transition-colors text-left"
-                            >
-                                <span className="text-2xl">{c.flag}</span>
-                                <span className="text-lg font-bold dark:text-white">{c.code}</span>
-                            </button>
-                        ))}
-                    </div>
-                )}
-             </div>
-            
-            <button onClick={nextStep} disabled={phoneNumber.length < 5} className="mt-10 w-full bg-black dark:bg-white text-white dark:text-black py-4 rounded-2xl font-bold shadow-xl shadow-black/10 disabled:opacity-30 active:scale-95 transition-all flex items-center justify-center">
-               {isLoading ? <Loader2 className="animate-spin" /> : t.continue}
-            </button>
-          </div>
-        )}
-
-        {step === 2 && (
-          <div className="animate-slide-up w-full">
-            <input 
-                 type="password" 
-                 placeholder="Password"
-                 value={password}
-                 onChange={(e) => setPassword(e.target.value)}
-                 className="w-full py-4 bg-transparent border-b-2 border-gray-100 dark:border-zinc-800 focus:border-black dark:focus:border-white outline-none transition-colors text-2xl font-medium dark:text-white placeholder-gray-300"
-                 autoFocus
-            />
-            
-            {/* Password Strength Indicator */}
-            <div className="mt-4 flex gap-2 h-1.5">
-                {[0, 1, 2, 3].map((level) => (
-                    <div 
-                        key={level}
-                        className={`flex-1 rounded-full transition-all duration-500 ease-out ${
-                            strengthScore > level 
-                                ? (strengthScore <= 2 ? 'bg-red-500' : strengthScore === 3 ? 'bg-yellow-400' : 'bg-emerald-500')
-                                : 'bg-gray-100 dark:bg-zinc-800'
-                        }`}
-                    />
-                ))}
-            </div>
-            <div className="flex justify-between items-center mt-2">
-                 <p className="text-xs text-gray-400">Must contain 8+ chars & symbols</p>
-                 <p className={`text-xs font-bold transition-colors duration-300 ${
-                     strengthScore <= 2 ? 'text-red-500' : strengthScore === 3 ? 'text-yellow-500' : 'text-emerald-500'
-                 }`}>
-                    {strengthScore === 0 && ''}
-                    {strengthScore === 1 && 'Weak'}
-                    {strengthScore === 2 && 'Fair'}
-                    {strengthScore === 3 && 'Good'}
-                    {strengthScore === 4 && 'Strong'}
-                 </p>
-            </div>
-
-            <button onClick={nextStep} disabled={strengthScore < 2} className="mt-8 w-full bg-black dark:bg-white text-white dark:text-black py-4 rounded-2xl font-bold shadow-xl disabled:opacity-30 active:scale-95 transition-all flex items-center justify-center">
-               {isLoading ? <Loader2 className="animate-spin" /> : t.continue}
-            </button>
-          </div>
-        )}
-
-        {step === 3 && (
-          <div className="animate-slide-up w-full">
-            <div className="flex items-center border-b-2 border-gray-100 dark:border-zinc-800 focus-within:border-black dark:focus-within:border-white transition-colors">
-                <span className="text-2xl text-gray-400 font-medium">@</span>
-                <input 
-                    type="text" value={username} onChange={e => setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ''))} placeholder="username"
-                    className="w-full py-4 pl-1 bg-transparent outline-none text-2xl font-medium dark:text-white placeholder-gray-300"
-                    autoFocus
-                />
-            </div>
-            <button onClick={nextStep} disabled={username.length < 3} className="mt-10 w-full bg-black dark:bg-white text-white dark:text-black py-4 rounded-2xl font-bold shadow-xl disabled:opacity-30 active:scale-95 transition-all flex items-center justify-center">
-               {isLoading ? <Loader2 className="animate-spin" /> : t.continue}
-            </button>
-          </div>
-        )}
-
-        {step === 4 && (
-           <div className="animate-slide-up w-full">
-              <div className="flex gap-4 justify-center mb-8">
-                 {[0,1,2,3].map(i => (
-                    <div key={i} className="w-14 h-16 border-2 border-gray-100 dark:border-zinc-800 rounded-2xl flex items-center justify-center text-2xl font-bold dark:text-white bg-gray-50 dark:bg-zinc-900">
-                        {['1','2','3','4'][i]}
-                    </div>
-                 ))}
-              </div>
-              <button onClick={handleFinalLogin} className="w-full bg-black dark:bg-white text-white dark:text-black py-4 rounded-2xl font-bold shadow-xl active:scale-95 transition-all flex items-center justify-center">
-               {isLoading ? <Loader2 className="animate-spin" /> : t.verifyEnter}
-            </button>
-           </div>
-        )}
-      </div>
-    </div>
-  );
-};
-
 // --- Main App ---
 
 export default function App() {
@@ -498,34 +305,6 @@ export default function App() {
           if (ghostTimerRef.current) clearInterval(ghostTimerRef.current);
           return;
       }
-
-      // Start a loop that triggers randomly but more frequently for 100 users
-      const runSimulation = async () => {
-          const event = await db.simulateGhostInteraction(currentUser.id);
-          if (event) {
-              // Trigger notification toast
-              if (event.type === 'POST') {
-                   // Optional: Silent update for posts to avoid spamming toasts
-              } else {
-                   showToast(event.user.displayName, 'notification', 
-                        <img src={event.user.avatarUrl} className="w-full h-full object-cover rounded-full" alt="" />,
-                        event.text
-                    );
-              }
-              // Silent refresh to show numbers updating and new content
-              refreshData(currentUser);
-          }
-          
-          // Faster loop: 2s to 6s
-          const nextDelay = Math.floor(Math.random() * 4000) + 2000; 
-          ghostTimerRef.current = setTimeout(runSimulation, nextDelay);
-      };
-
-      runSimulation();
-
-      return () => {
-          if (ghostTimerRef.current) clearTimeout(ghostTimerRef.current);
-      };
   }, [currentUser]);
 
   // Auto-analyze mood on typing pause
@@ -686,8 +465,13 @@ export default function App() {
     refreshData();
   };
 
-  const handleLogin = async (email: string, username: string) => {
-    const user = await db.login(email, username);
+  const handleLogin = async (email: string, password: string, username?: string) => {
+    let user;
+    if (username) {
+      user = await db.signup(email, password, username);
+    } else {
+      user = await db.login(email, password);
+    }
     setCurrentUser(user);
     await refreshData(user);
     setScreen(Screen.FEED);
