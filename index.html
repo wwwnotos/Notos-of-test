@@ -106,10 +106,48 @@
       .pt-safe {
         padding-top: env(safe-area-inset-top);
       }
+      /* Prevent zoom on iOS */
+      @media screen and (max-width: 768px) {
+        html {
+          -webkit-text-size-adjust: 100%;
+          -moz-text-size-adjust: 100%;
+          -ms-text-size-adjust: 100%;
+          text-size-adjust: 100%;
+        }
+        /* Force full height on mobile */
+        html, body {
+          height: 100%;
+          height: 100vh;
+          height: -webkit-fill-available;
+          overflow: hidden;
+          position: fixed;
+          width: 100%;
+        }
+        #root {
+          height: 100%;
+          height: 100vh;
+          height: -webkit-fill-available;
+          overflow: hidden;
+        }
+      }
+      /* Prevent overscroll */
+      html {
+        overscroll-behavior: none;
+      }
     </style>
   </head>
   <body class="bg-gray-100 dark:bg-black text-gray-900 antialiased overflow-hidden selection:bg-indigo-100 selection:text-indigo-900 font-sans transition-colors duration-300">
-    <div id="root" class="h-full"></div>
+    <div id="root" class="h-screen w-screen overflow-hidden"></div>
+    <script>
+      // Fix for mobile viewport height with address bar
+      function setVH() {
+        const vh = window.innerHeight * 0.01;
+        document.documentElement.style.setProperty('--vh', `${vh}px`);
+      }
+      setVH();
+      window.addEventListener('resize', setVH);
+      window.addEventListener('orientationchange', setVH);
+    </script>
     <script type="module" src="/index.tsx"></script>
   </body>
 </html>
