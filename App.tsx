@@ -243,6 +243,7 @@ const AuthScreen = ({ onLogin, t }: { onLogin: (identifier: string, username: st
   const [countryCode, setCountryCode] = useState(COUNTRY_CODES[0].code);
   const [phoneNumber, setPhoneNumber] = useState('');
   const [username, setUsername] = useState('');
+  const [password, setPassword] = useState(''); // State for password tracking
   const [isLoading, setIsLoading] = useState(false);
   const [isCountryOpen, setIsCountryOpen] = useState(false);
 
@@ -274,6 +275,19 @@ const AuthScreen = ({ onLogin, t }: { onLogin: (identifier: string, username: st
       return `${val.slice(0,3)} ${val.slice(3,6)} ${val.slice(6,10)}`;
   };
 
+  // Calculate Password Strength
+  const getPasswordStrength = (pass: string) => {
+    if (!pass) return 0;
+    let score = 0;
+    if (pass.length >= 6) score += 1;
+    if (pass.length >= 10) score += 1;
+    if (/[0-9]/.test(pass)) score += 1;
+    if (/[^A-Za-z0-9]/.test(pass)) score += 1;
+    return score; // 0 to 4
+  };
+
+  const strengthScore = getPasswordStrength(password);
+
   return (
     <div className="h-screen w-full bg-white dark:bg-black px-8 flex flex-col transition-colors duration-500 pt-32 relative"> 
       <div className="absolute top-10 left-8">
@@ -287,7 +301,7 @@ const AuthScreen = ({ onLogin, t }: { onLogin: (identifier: string, username: st
         <div className="h-1 w-12 bg-brand-accent rounded-full mb-4"></div>
         <p className="text-gray-400 dark:text-gray-500 text-base font-medium leading-relaxed">
           {step === 1 && t.enterPhone}
-          {step === 2 && "Create a secure password for your account."}
+          {step === 2 && "Create a secure password."}
           {step === 3 && "Choose a unique username that defines you."}
           {step === 4 && `${t.enterCode} ${countryCode} ${formatPhoneNumber(phoneNumber)}`}
         </p>
@@ -342,11 +356,41 @@ const AuthScreen = ({ onLogin, t }: { onLogin: (identifier: string, username: st
         {step === 2 && (
           <div className="animate-slide-up w-full">
             <input 
-                 type="password" placeholder="Password"
+                 type="password" 
+                 placeholder="Password"
+                 value={password}
+                 onChange={(e) => setPassword(e.target.value)}
                  className="w-full py-4 bg-transparent border-b-2 border-gray-100 dark:border-zinc-800 focus:border-black dark:focus:border-white outline-none transition-colors text-2xl font-medium dark:text-white placeholder-gray-300"
                  autoFocus
             />
-            <button onClick={nextStep} className="mt-10 w-full bg-black dark:bg-white text-white dark:text-black py-4 rounded-2xl font-bold shadow-xl disabled:opacity-30 active:scale-95 transition-all flex items-center justify-center">
+            
+            {/* Password Strength Indicator */}
+            <div className="mt-4 flex gap-2 h-1.5">
+                {[0, 1, 2, 3].map((level) => (
+                    <div 
+                        key={level}
+                        className={`flex-1 rounded-full transition-all duration-500 ease-out ${
+                            strengthScore > level 
+                                ? (strengthScore <= 2 ? 'bg-red-500' : strengthScore === 3 ? 'bg-yellow-400' : 'bg-emerald-500')
+                                : 'bg-gray-100 dark:bg-zinc-800'
+                        }`}
+                    />
+                ))}
+            </div>
+            <div className="flex justify-between items-center mt-2">
+                 <p className="text-xs text-gray-400">Must contain 8+ chars & symbols</p>
+                 <p className={`text-xs font-bold transition-colors duration-300 ${
+                     strengthScore <= 2 ? 'text-red-500' : strengthScore === 3 ? 'text-yellow-500' : 'text-emerald-500'
+                 }`}>
+                    {strengthScore === 0 && ''}
+                    {strengthScore === 1 && 'Weak'}
+                    {strengthScore === 2 && 'Fair'}
+                    {strengthScore === 3 && 'Good'}
+                    {strengthScore === 4 && 'Strong'}
+                 </p>
+            </div>
+
+            <button onClick={nextStep} disabled={strengthScore < 2} className="mt-8 w-full bg-black dark:bg-white text-white dark:text-black py-4 rounded-2xl font-bold shadow-xl disabled:opacity-30 active:scale-95 transition-all flex items-center justify-center">
                {isLoading ? <Loader2 className="animate-spin" /> : t.continue}
             </button>
           </div>
@@ -421,9 +465,6 @@ export default function App() {
   const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
   const [isTutorialOpen, setIsTutorialOpen] = useState(false);
 
-  // PWA Install State
-  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
-
   // Create Note State
   const [newNoteContent, setNewNoteContent] = useState('');
   const [newNoteAudioBlob, setNewNoteAudioBlob] = useState<Blob | null>(null);
@@ -449,26 +490,6 @@ export default function App() {
   useEffect(() => {
       setActiveInterest(t.forYou);
   }, [t.forYou]);
-
-  // Listen for PWA Install Event
-  useEffect(() => {
-      const handler = (e: any) => {
-          e.preventDefault();
-          setDeferredPrompt(e);
-      };
-      window.addEventListener('beforeinstallprompt', handler);
-      return () => window.removeEventListener('beforeinstallprompt', handler);
-  }, []);
-
-  const handleInstallClick = async () => {
-      if (deferredPrompt) {
-          deferredPrompt.prompt();
-          const { outcome } = await deferredPrompt.userChoice;
-          if (outcome === 'accepted') {
-              setDeferredPrompt(null);
-          }
-      }
-  };
 
   // --- Ghost Interaction Simulation ---
   useEffect(() => {
@@ -1131,30 +1152,6 @@ export default function App() {
                     </div>
                 </div>
 
-                {/* Application Install Section (Always visible) */}
-                <div className="space-y-2">
-                    <h3 className="px-2 text-xs font-bold uppercase text-gray-400 tracking-wider">Application</h3>
-                    {deferredPrompt ? (
-                        <button onClick={handleInstallClick} className="w-full p-4 bg-white dark:bg-zinc-900 rounded-2xl shadow-sm flex items-center justify-between active:scale-95 transition-transform">
-                            <div className="flex items-center gap-3">
-                                <div className="p-2 bg-brand-accent/10 rounded-lg"><Download size={20} className="text-brand-accent"/></div>
-                                <span className="font-bold dark:text-white">Install App</span>
-                            </div>
-                            <ChevronRight size={18} className="text-gray-400"/>
-                        </button>
-                    ) : (
-                        <div className="p-4 bg-white dark:bg-zinc-900 rounded-2xl shadow-sm flex flex-col gap-2">
-                             <div className="flex items-center gap-3 opacity-50">
-                                <div className="p-2 bg-gray-100 dark:bg-zinc-800 rounded-lg"><Download size={20} className="dark:text-white"/></div>
-                                <span className="font-bold dark:text-white">Install App</span>
-                             </div>
-                             <p className="text-xs text-gray-400">
-                                To install, open browser menu and tap <span className="font-bold">Add to Home Screen</span>
-                             </p>
-                        </div>
-                    )}
-                </div>
-
                 {/* Privacy */}
                 <div className="space-y-2">
                      <h3 className="px-2 text-xs font-bold uppercase text-gray-400 tracking-wider">{t.security}</h3>
@@ -1210,7 +1207,7 @@ export default function App() {
                 </div>
 
                 <div className="p-4 text-center text-gray-400 text-sm">
-                        <p>Notos v2.1.0</p>
+                        <p>Notos v2.2.1</p>
                         <p className="text-xs mt-1">Made with ❤️</p>
                 </div>
 
