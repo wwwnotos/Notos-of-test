@@ -1,4 +1,3 @@
-
 export enum NoteType {
   TEXT = 'TEXT',
   AUDIO = 'AUDIO'
@@ -129,3 +128,4 @@ export enum Screen {
   TAG_DETAILS = 'TAG_DETAILS',
   SETTINGS = 'SETTINGS'
 }
+

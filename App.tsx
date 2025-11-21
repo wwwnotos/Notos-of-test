@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Screen, Note, User, NoteType, FontStyle, NoteColor, Comment, Notification } from './types';
+import { Screen, Note, User, NoteType, FontStyle, NoteColor, Comment } from './types';
+import type { Notification } from './types';
 import { TRANSLATIONS, DEFAULT_TRENDING_TAGS, COUNTRY_CODES, getRelativeTime } from './constants';
 import { suggestTags, analyzeMood } from './services/geminiService';
 import { db } from './services/db';

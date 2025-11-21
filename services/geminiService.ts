@@ -3,7 +3,8 @@ import { GoogleGenAI, SchemaType } from "@google/genai";
 
 // Initialize the client
 // process.env.API_KEY is assumed to be available
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+const API_KEY = process.env.API_KEY || 'AIzaSyDummy_Key_For_Testing';
+const ai = new GoogleGenAI({ apiKey: API_KEY });
 
 const SAFETY_SETTINGS = [
   { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_ONLY_HIGH' },
