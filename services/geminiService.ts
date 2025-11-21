@@ -1,10 +1,8 @@
 
 import { GoogleGenAI, SchemaType } from "@google/genai";
 
-// Initialize the client
-// process.env.API_KEY is assumed to be available
-const API_KEY = process.env.API_KEY || 'AIzaSyDummy_Key_For_Testing';
-const ai = new GoogleGenAI({ apiKey: API_KEY });
+const API_KEY = import.meta.env.VITE_GEMINI_API_KEY || '';
+const ai = API_KEY ? new GoogleGenAI({ apiKey: API_KEY }) : null;
 
 const SAFETY_SETTINGS = [
   { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_ONLY_HIGH' },
@@ -15,7 +13,7 @@ const SAFETY_SETTINGS = [
  * Polishes the text to be more poetic or concise.
  */
 export const polishText = async (text: string): Promise<string> => {
-  if (!text.trim()) return "";
+  if (!text.trim() || !ai) return text;
 
   try {
     const response = await ai.models.generateContent({
@@ -25,7 +23,7 @@ export const polishText = async (text: string): Promise<string> => {
     return response.text?.trim() || text;
   } catch (error) {
     console.error("Gemini polish error:", error);
-    return text; 
+    return text;
   }
 };
 
@@ -33,14 +31,14 @@ export const polishText = async (text: string): Promise<string> => {
  * Suggests hashtags based on the text.
  */
 export const suggestTags = async (text: string): Promise<string[]> => {
-    if (!text.trim()) return [];
+    if (!text.trim() || !ai) return [];
 
     try {
       const response = await ai.models.generateContent({
         model: 'gemini-2.5-flash',
         contents: `Analyze this text: "${text}". Suggest 3 relevant, trending social media hashtags. Return ONLY the hashtags separated by spaces. Example output: #art #design #colors`,
       });
-      
+
       const raw = response.text || "";
       const tags = raw.split(' ').filter(t => t.startsWith('#')).slice(0, 3);
       return tags;
@@ -54,16 +52,16 @@ export const suggestTags = async (text: string): Promise<string[]> => {
  * Analyzes the sentiment of the text to suggest a color and icon.
  */
 export const analyzeMood = async (text: string): Promise<{ color: string; icon: string } | null> => {
-    if (!text.trim() || text.length < 10) return null;
+    if (!text.trim() || text.length < 10 || !ai) return null;
 
     try {
         const response = await ai.models.generateContent({
             model: 'gemini-2.5-flash',
-            contents: `Analyze the sentiment and theme of this text: "${text}". 
+            contents: `Analyze the sentiment and theme of this text: "${text}".
             Return a JSON object with two fields:
             1. "color": Choose one strictly from [white, yellow, blue, rose, emerald, violet, dark].
             2. "icon": Choose one strictly from [Star, Feather, Mic, Music, Plane, Camera, Palette, Code, Cpu, Newspaper, Flame, Zap, Globe, Smile, Moon, Sun].
-            
+
             Example: {"color": "blue", "icon": "Plane"}`,
             config: { responseMimeType: "application/json" }
         });
@@ -83,6 +81,8 @@ export const analyzeMood = async (text: string): Promise<{ color: string; icon: 
  * Generates a smart reply for a note.
  */
 export const generateSmartReply = async (noteContent: string, mood: string = 'supportive'): Promise<string> => {
+    if (!ai) return "";
+
     try {
         const response = await ai.models.generateContent({
             model: 'gemini-2.5-flash',
